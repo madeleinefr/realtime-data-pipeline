@@ -1,0 +1,15 @@
+# Environment variables (contains secrets)
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Pytest cache
+.pytest_cache/
+
+# Temporary files
+/tmp/
+
+# Spark checkpoints
+spark-checkpoints/
