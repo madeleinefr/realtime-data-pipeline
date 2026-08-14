@@ -77,3 +77,29 @@ class TestBackoffPowerOfTwoProperty:
             f"Backoff for attempt {attempt} was {result}, "
             f"expected one of {sorted(valid_powers)}"
         )
+
+
+class TestBackoffExponentialCorrectnessProperty:
+    """Property: For any retry attempt N (1 ≤ N ≤ 10), backoff equals min(2^(N-1), 32).
+
+    Verifies the exact exponential backoff formula is correctly implemented
+    for all valid retry attempts within the configured maximum.
+
+    **Validates: Requirements FR-1.6**
+    """
+
+    @settings(max_examples=200)
+    @given(attempt=st.integers(min_value=1, max_value=10))
+    def test_backoff_equals_exponential_formula(self, attempt):
+        """**Validates: Requirements FR-1.6**
+
+        For any retry attempt N in [1, 10], compute_backoff(N) must equal
+        min(2^(N-1), 32), confirming the exponential backoff formula is
+        correctly implemented.
+        """
+        result = compute_backoff(attempt)
+        expected = float(min(2 ** (attempt - 1), 32))
+        assert result == expected, (
+            f"Backoff for attempt {attempt} was {result}, "
+            f"expected {expected} (min(2^{attempt - 1}, 32))"
+        )
