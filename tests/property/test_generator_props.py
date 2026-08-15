@@ -64,10 +64,6 @@ class TestGeneratedRecordSchemaValidity:
 
     # Valid values for enum fields
     VALID_DEVICE_TYPES = [
-        "temperature_sensor",
-        "humidity_sensor",
-        "pressure_sensor",
-        "air_quality_sensor",
         "weather_station",
     ]
 
