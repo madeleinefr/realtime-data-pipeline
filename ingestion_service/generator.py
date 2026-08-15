@@ -27,12 +27,8 @@ SWISS_CANTONS: list[str] = [
     "TI", "VD", "VS", "NE", "GE", "JU",
 ]
 
-# IoT device type options
+# IoT device type — all devices are weather stations
 DEVICE_TYPES: list[str] = [
-    "temperature_sensor",
-    "humidity_sensor",
-    "pressure_sensor",
-    "air_quality_sensor",
     "weather_station",
 ]
 
