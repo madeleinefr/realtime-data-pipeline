@@ -1,0 +1,181 @@
+services:
+  kafka1:
+    image: apache/kafka:3.7.0
+    container_name: kafka1
+    volumes:
+      - ./kafka/server1.properties:/opt/kafka/config/kraft/server.properties
+      - ./kafka/kafka_server_jaas.conf:/opt/kafka/config/kafka_server_jaas.conf
+    environment:
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/kafka/config/kafka_server_jaas.conf"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    networks:
+      - data-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+
+  kafka2:
+    image: apache/kafka:3.7.0
+    container_name: kafka2
+    volumes:
+      - ./kafka/server2.properties:/opt/kafka/config/kraft/server.properties
+      - ./kafka/kafka_server_jaas.conf:/opt/kafka/config/kafka_server_jaas.conf
+    environment:
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/kafka/config/kafka_server_jaas.conf"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    networks:
+      - data-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    container_name: kafka-init
+    volumes:
+      - ./kafka/create-topics.sh:/opt/kafka/create-topics.sh
+      - ./kafka/kafka_server_jaas.conf:/opt/kafka/config/kafka_server_jaas.conf
+    environment:
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/opt/kafka/config/kafka_server_jaas.conf"
+    command: bash /opt/kafka/create-topics.sh kafka1:9092
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+    networks:
+      - data-net
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  ingestion:
+    build: ./ingestion_service
+    container_name: ingestion_service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      KAFKA_TOPIC: "raw_data"
+      PRODUCE_RATE: "10"
+      RECORD_LIMIT: "0"
+      KAFKA_SASL_USERNAME: ${INGESTION_KAFKA_USER}
+      KAFKA_SASL_PASSWORD: ${INGESTION_KAFKA_PASS}
+      LOG_LEVEL: "INFO"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - data-net
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os; exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  processing:
+    build: ./processing_service
+    container_name: processing_service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      INPUT_TOPIC: "raw_data"
+      OUTPUT_TOPIC: "aggregated_data"
+      WINDOW_SIZE_MINUTES: "5"
+      SLIDE_INTERVAL_SECONDS: "60"
+      COLUMN_EXCLUSION_LIST: ""
+      ROW_INCLUSION_CRITERIA: "{}"
+      CHECKPOINT_DIR: "/tmp/spark-checkpoints"
+      KAFKA_SASL_USERNAME: ${PROCESSING_KAFKA_USER}
+      KAFKA_SASL_PASSWORD: ${PROCESSING_KAFKA_PASS}
+      LOG_LEVEL: "INFO"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - data-net
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4096M
+    volumes:
+      - spark-checkpoints:/tmp/spark-checkpoints
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os; exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  visualization:
+    image: grafana/grafana-oss:10.4.2
+    container_name: visualization_service
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: "hamedkarbasi93-kafkadatasource-datasource"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      VISUALIZATION_KAFKA_USER: ${VISUALIZATION_KAFKA_USER}
+      VISUALIZATION_KAFKA_PASS: ${VISUALIZATION_KAFKA_PASS}
+      GF_LOG_LEVEL: "info"
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+    networks:
+      - data-net
+      - grafana-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  data-net:
+    driver: bridge
+    internal: true
+  grafana-net:
+    driver: bridge
+
+volumes:
+  spark-checkpoints:
