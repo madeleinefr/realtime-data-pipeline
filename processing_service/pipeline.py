@@ -5,9 +5,8 @@ deserializes JSON records, validates timestamps, applies row-level and column-le
 filtering, computes sliding window aggregations grouped by canton, and writes
 results to the aggregated_data Kafka topic with checkpointing and retry logic.
 
-Configuration is driven entirely by environment variables (see design.md for the
-full list). SASL/PLAIN authentication is configured for both Kafka consumers and
-producers.
+Configuration is driven entirely by environment variables. SASL/PLAIN authentication is 
+configured for both Kafka consumers and producers.
 
 Requirements: FR-3.1, FR-3.2, FR-3.3, FR-3.4, FR-3.5, FR-3.6, FR-3.7, FR-3.8,
               NFR-3.3, NFR-5.5, NFR-5.8, NFR-5.9, NFR-5.10, NFR-7.2
@@ -439,7 +438,7 @@ def start_pipeline(spark: SparkSession, config: Optional[PipelineConfig] = None)
         )
         .agg(
             F.count("*").alias("record_count"),
-            F.countDistinct("device_id").alias("device_count"),
+            F.approx_count_distinct("device_id").alias("device_count"),
             F.avg("temperature").alias("avg_temperature"),
             F.avg("humidity").alias("avg_humidity"),
             F.avg("pressure").alias("avg_pressure"),
