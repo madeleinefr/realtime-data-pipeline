@@ -16,7 +16,7 @@
 # Prerequisites:
 #   - Kafka brokers running in KRaft mode with SASL/PLAIN authentication
 #   - Admin credentials available (super user bypasses ACL checks)
-#   - kafka-topics.sh and kafka-acls.sh available on PATH
+#   - kafka-topics and kafka-acls available on PATH
 #
 # Usage:
 #   ./create-topics.sh [BOOTSTRAP_SERVER]
@@ -92,8 +92,8 @@ wait_for_brokers() {
 
     local retries=0
     while [ $retries -lt $MAX_RETRIES ]; do
-        if kafka-metadata.sh --snapshot /tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log --cluster-id 2>/dev/null || \
-           kafka-topics.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+        if kafka-metadata --snapshot /tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log --cluster-id 2>/dev/null || \
+           kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" \
                --command-config "${COMMAND_CONFIG_FILE}" \
                --list >/dev/null 2>&1; then
             log "Kafka brokers are available."
@@ -122,14 +122,14 @@ create_topic() {
     log "Creating topic '${topic_name}' (partitions=${partitions}, RF=${replication_factor}, retention=${retention_ms}ms)..."
 
     # Check if topic already exists
-    if kafka-topics.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    if kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --describe --topic "${topic_name}" >/dev/null 2>&1; then
         log "Topic '${topic_name}' already exists. Skipping creation."
         return 0
     fi
 
-    kafka-topics.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --create \
         --topic "${topic_name}" \
@@ -154,7 +154,7 @@ setup_acls() {
 
     # --- Ingestion_Service: WRITE to raw_data ---
     log "Granting ingestion user WRITE access to '${RAW_DATA_TOPIC}'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:ingestion \
@@ -163,7 +163,7 @@ setup_acls() {
 
     # --- Processing_Service: READ raw_data, READ consumer group, WRITE aggregated_data ---
     log "Granting processing user READ access to '${RAW_DATA_TOPIC}'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:processing \
@@ -171,7 +171,7 @@ setup_acls() {
         --topic "${RAW_DATA_TOPIC}"
 
     log "Granting processing user READ access to consumer group 'processing-group'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:processing \
@@ -179,7 +179,7 @@ setup_acls() {
         --group processing-group
 
     log "Granting processing user WRITE access to '${AGGREGATED_DATA_TOPIC}'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:processing \
@@ -188,7 +188,7 @@ setup_acls() {
 
     # --- Visualization_Service: READ aggregated_data, READ consumer group ---
     log "Granting visualization user READ access to '${AGGREGATED_DATA_TOPIC}'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:visualization \
@@ -196,7 +196,7 @@ setup_acls() {
         --topic "${AGGREGATED_DATA_TOPIC}"
 
     log "Granting visualization user READ access to consumer group 'visualization-group'..."
-    kafka-acls.sh --bootstrap-server "${BOOTSTRAP_SERVER}" \
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
         --command-config "${COMMAND_CONFIG_FILE}" \
         --add \
         --allow-principal User:visualization \

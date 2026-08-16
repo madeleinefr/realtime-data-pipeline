@@ -1,0 +1,225 @@
+services:
+  kafka1:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka1
+    volumes:
+      - ./kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+      - ./kafka/healthcheck.properties:/tmp/healthcheck.properties
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9093,2@kafka2:9093"
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:SASL_PLAINTEXT,CONTROLLER:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_MECHANISM_CONTROLLER_PROTOCOL: PLAIN
+      KAFKA_AUTHORIZER_CLASS_NAME: org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      KAFKA_SUPER_USERS: "User:admin"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_LOG_RETENTION_HOURS: 24
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+    networks:
+      - data-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 --command-config /tmp/healthcheck.properties || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka2
+    volumes:
+      - ./kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+      - ./kafka/healthcheck.properties:/tmp/healthcheck.properties
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9093,2@kafka2:9093"
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:SASL_PLAINTEXT,CONTROLLER:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_MECHANISM_CONTROLLER_PROTOCOL: PLAIN
+      KAFKA_AUTHORIZER_CLASS_NAME: org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      KAFKA_SUPER_USERS: "User:admin"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_LOG_RETENTION_HOURS: 24
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+    networks:
+      - data-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 --command-config /tmp/healthcheck.properties || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-init
+    volumes:
+      - ./kafka/create-topics.sh:/opt/kafka/create-topics.sh
+      - ./kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+    environment:
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+    command: bash /opt/kafka/create-topics.sh kafka1:9092
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+    networks:
+      - data-net
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  ingestion:
+    build: ./ingestion_service
+    container_name: ingestion_service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      KAFKA_TOPIC: "raw_data"
+      PRODUCE_RATE: "10"
+      RECORD_LIMIT: "0"
+      KAFKA_SASL_USERNAME: ${INGESTION_KAFKA_USER}
+      KAFKA_SASL_PASSWORD: ${INGESTION_KAFKA_PASS}
+      LOG_LEVEL: "INFO"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - data-net
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os; exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  processing:
+    build: ./processing_service
+    container_name: processing_service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      INPUT_TOPIC: "raw_data"
+      OUTPUT_TOPIC: "aggregated_data"
+      WINDOW_SIZE_MINUTES: "5"
+      SLIDE_INTERVAL_SECONDS: "60"
+      COLUMN_EXCLUSION_LIST: ""
+      ROW_INCLUSION_CRITERIA: "{}"
+      CHECKPOINT_DIR: "/tmp/spark-checkpoints"
+      KAFKA_SASL_USERNAME: ${PROCESSING_KAFKA_USER}
+      KAFKA_SASL_PASSWORD: ${PROCESSING_KAFKA_PASS}
+      LOG_LEVEL: "INFO"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - data-net
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4096M
+    volumes:
+      - spark-checkpoints:/tmp/spark-checkpoints
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import os; exit(0)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  visualization:
+    image: grafana/grafana-oss:10.4.2
+    container_name: visualization_service
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: "hamedkarbasi93-kafkadatasource-datasource"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      VISUALIZATION_KAFKA_USER: ${VISUALIZATION_KAFKA_USER}
+      VISUALIZATION_KAFKA_PASS: ${VISUALIZATION_KAFKA_PASS}
+      GF_LOG_LEVEL: "info"
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+    networks:
+      - data-net
+      - grafana-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: on-failure:5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  data-net:
+    driver: bridge
+    internal: true
+  grafana-net:
+    driver: bridge
+
+volumes:
+  spark-checkpoints:

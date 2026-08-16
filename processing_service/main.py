@@ -45,8 +45,11 @@ def create_spark_session() -> SparkSession:
         SparkSession.builder
         .appName("ProcessingService")
         .config(
-            "spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0",
+            "spark.jars",
+            "/opt/spark/jars/spark-sql-kafka-0-10_2.12-3.5.1.jar,"
+            "/opt/spark/jars/kafka-clients-3.4.1.jar,"
+            "/opt/spark/jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar,"
+            "/opt/spark/jars/commons-pool2-2.11.1.jar",
         )
         .config("spark.sql.shuffle.partitions", "4")
         .config("spark.streaming.stopGracefullyOnShutdown", "true")
