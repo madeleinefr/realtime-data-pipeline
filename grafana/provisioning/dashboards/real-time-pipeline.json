@@ -1,0 +1,803 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Dashboard for monitoring the real-time IoT data pipeline with Swiss canton weather data",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Running total of records processed \u2014 grows continuously",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1000000
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^total_records_ingested$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Total Records Ingested",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Total distinct devices reporting per window",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^device_count$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Active Devices",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Line chart comparing average humidity across cantons",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Avg Humidity by Canton",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "avg_humidity",
+                "canton"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Line chart comparing average temperature across cantons",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Avg Temperature by Canton",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "avg_temperature",
+                "canton"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Shows throughput over time \u2014 record count per aggregation window",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Records per Window",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "record_count"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Line chart comparing average pressure across cantons",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "pressurehpa"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Avg Pressure by Canton",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "avg_pressure",
+                "canton"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": [
+    "iot",
+    "kafka",
+    "real-time"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "description": "Filter all panels by canton",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Canton",
+        "multi": true,
+        "name": "canton",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "ZH",
+            "value": "ZH"
+          },
+          {
+            "selected": false,
+            "text": "BE",
+            "value": "BE"
+          },
+          {
+            "selected": false,
+            "text": "LU",
+            "value": "LU"
+          },
+          {
+            "selected": false,
+            "text": "UR",
+            "value": "UR"
+          },
+          {
+            "selected": false,
+            "text": "SZ",
+            "value": "SZ"
+          },
+          {
+            "selected": false,
+            "text": "OW",
+            "value": "OW"
+          },
+          {
+            "selected": false,
+            "text": "NW",
+            "value": "NW"
+          },
+          {
+            "selected": false,
+            "text": "GL",
+            "value": "GL"
+          },
+          {
+            "selected": false,
+            "text": "ZG",
+            "value": "ZG"
+          },
+          {
+            "selected": false,
+            "text": "FR",
+            "value": "FR"
+          },
+          {
+            "selected": false,
+            "text": "SO",
+            "value": "SO"
+          },
+          {
+            "selected": false,
+            "text": "BS",
+            "value": "BS"
+          },
+          {
+            "selected": false,
+            "text": "BL",
+            "value": "BL"
+          },
+          {
+            "selected": false,
+            "text": "SH",
+            "value": "SH"
+          },
+          {
+            "selected": false,
+            "text": "AR",
+            "value": "AR"
+          },
+          {
+            "selected": false,
+            "text": "AI",
+            "value": "AI"
+          },
+          {
+            "selected": false,
+            "text": "SG",
+            "value": "SG"
+          },
+          {
+            "selected": false,
+            "text": "GR",
+            "value": "GR"
+          },
+          {
+            "selected": false,
+            "text": "AG",
+            "value": "AG"
+          },
+          {
+            "selected": false,
+            "text": "TG",
+            "value": "TG"
+          },
+          {
+            "selected": false,
+            "text": "TI",
+            "value": "TI"
+          },
+          {
+            "selected": false,
+            "text": "VD",
+            "value": "VD"
+          },
+          {
+            "selected": false,
+            "text": "VS",
+            "value": "VS"
+          },
+          {
+            "selected": false,
+            "text": "NE",
+            "value": "NE"
+          },
+          {
+            "selected": false,
+            "text": "GE",
+            "value": "GE"
+          },
+          {
+            "selected": false,
+            "text": "JU",
+            "value": "JU"
+          }
+        ],
+        "query": "ZH,BE,LU,UR,SZ,OW,NW,GL,ZG,FR,SO,BS,BL,SH,AR,AI,SG,GR,AG,TG,TI,VD,VS,NE,GE,JU",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30s",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Real-Time Data Pipeline",
+  "uid": "real-time-pipeline",
+  "version": 4,
+  "weekStart": ""
+}
