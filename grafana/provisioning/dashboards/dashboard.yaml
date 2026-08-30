@@ -1,0 +1,15 @@
+# Grafana dashboard provisioning configuration.
+# Loads dashboard JSON files from the provisioning directory
+# for reproducible, file-based dashboard management.
+apiVersion: 1
+
+providers:
+  - name: Default
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

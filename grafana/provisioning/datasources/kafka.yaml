@@ -1,0 +1,19 @@
+# Grafana data source provisioning for the Kafka aggregated_data topic.
+# Uses the hamedkarbasi93-kafka-datasource community plugin
+# with SASL/PLAIN authentication for secure access.
+apiVersion: 1
+
+datasources:
+  - name: Kafka - Aggregated Data
+    type: hamedkarbasi93-kafka-datasource
+    access: proxy
+    isDefault: true
+    editable: true
+    uid: kafka-aggregated-data
+    jsonData:
+      bootstrapServers: $__env{KAFKA_BOOTSTRAP_SERVERS}
+      securityProtocol: SASL_PLAINTEXT
+      saslMechanisms: PLAIN
+      saslUsername: $__env{VISUALIZATION_KAFKA_USER}
+    secureJsonData:
+      saslPassword: $__env{VISUALIZATION_KAFKA_PASS}
