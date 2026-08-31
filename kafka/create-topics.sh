@@ -12,7 +12,9 @@
 #   - ingestion:     WRITE raw_data
 #   - processing:    READ raw_data, READ processing-group,
 #                    READ group prefix 'spark-kafka-source-' (Spark internal
-#                    consumer groups), WRITE aggregated_data
+#                    consumer groups), READ group prefix 'test-' (ephemeral
+#                    integration-test consumer groups for FR-2.3 verification),
+#                    WRITE aggregated_data
 #   - visualization: READ aggregated_data, READ visualization-group
 #
 # Prerequisites:
@@ -193,6 +195,27 @@ setup_acls() {
         --allow-principal User:processing \
         --operation Read \
         --group 'spark-kafka-source-' \
+        --resource-pattern-type prefixed
+
+    # Integration-test support for FR-2.3 ("multiple consumer groups read the
+    # same topic independently"). Verifying that property end-to-end requires
+    # two DISTINCT authorized consumer groups reading the SAME topic
+    # (raw_data). Production services are deliberately bound to their exact
+    # groups (processing-group / visualization-group) on different topics, so
+    # none of them can demonstrate the two-groups-one-topic scenario on their
+    # own. This narrowly-scoped PREFIXED grant authorizes only ephemeral
+    # integration-test consumer groups whose ids begin with 'test-' (e.g.
+    # 'test-fr23-a-<uuid>', 'test-fr23-b-<uuid>'), letting the test spin up two
+    # independent groups on raw_data. It preserves least-privilege: it is a
+    # bounded prefix (NOT a wildcard '*' group), grants READ only, and does not
+    # touch the exact-group bindings that production services rely on.
+    log "Granting processing user READ access to prefixed test consumer groups 'test-'..."
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
+        --command-config "${COMMAND_CONFIG_FILE}" \
+        --add \
+        --allow-principal User:processing \
+        --operation Read \
+        --group 'test-' \
         --resource-pattern-type prefixed
 
     log "Granting processing user WRITE access to '${AGGREGATED_DATA_TOPIC}'..."
