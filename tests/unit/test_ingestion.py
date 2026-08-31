@@ -356,15 +356,20 @@ class TestConnectionLossHandling:
             main, "generate_device_record", lambda: {"device_id": "device-001"}
         )
 
+        # Controlled clock keyed on the produce-failure event rather than on
+        # call count. It stays at the baseline (0.0) while run() sets
+        # last_successful_produce, then advances to elapsed_seconds when a
+        # produce failure occurs so the elapsed-time check inside the except
+        # block observes it. Tolerates unlimited extra calls (e.g. from the
+        # structured logger's use of time.time() via record.created).
+        clock = {"t": 0.0}
+        monkeypatch.setattr(main.time, "time", lambda: clock["t"])
+
         def failing_produce(_producer, _topic, _record):
+            clock["t"] = elapsed_seconds
             raise ConnectionError("broker connection lost")
 
         monkeypatch.setattr(main, "produce_record", failing_produce)
-
-        # Controlled clock: first call is the initial last_successful_produce
-        # baseline (0.0), the second is the elapsed-time check inside the loop.
-        times = iter([0.0, elapsed_seconds])
-        monkeypatch.setattr(main.time, "time", lambda: next(times))
         monkeypatch.setattr(main.time, "sleep", lambda _s: None)
 
         return state
@@ -398,8 +403,15 @@ class TestConnectionLossHandling:
 
         produce_calls = {"count": 0}
 
+        # Controlled clock keyed on the produce-failure event rather than on
+        # call count: baseline 0.0 while run() sets last_successful_produce,
+        # then 30.0s (<= 60 threshold, no exit) once a produce failure occurs.
+        # Tolerates unlimited extra calls (e.g. from the structured logger).
+        clock = {"t": 0.0}
+
         def failing_produce(_producer, _topic, _record):
             produce_calls["count"] += 1
+            clock["t"] = 30.0
             raise ConnectionError("transient blip")
 
         monkeypatch.setattr(main, "retry_connect", lambda _fn: FakeProducer())
@@ -407,9 +419,7 @@ class TestConnectionLossHandling:
             main, "generate_device_record", lambda: {"device_id": "device-001"}
         )
         monkeypatch.setattr(main, "produce_record", failing_produce)
-        # Baseline 0.0, elapsed check at 30.0s (<= 60 threshold, no exit).
-        times = iter([0.0, 30.0])
-        monkeypatch.setattr(main.time, "time", lambda: next(times))
+        monkeypatch.setattr(main.time, "time", lambda: clock["t"])
 
         # After the (successfully handled) failure, sleep() is reached, which we
         # use as a deterministic breakpoint proving run() did not exit early.
