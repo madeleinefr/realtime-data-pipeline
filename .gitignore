@@ -16,3 +16,6 @@ __pycache__/
 
 # Spark checkpoints
 spark-checkpoints/
+
+# Throwaway integration-test runner image Dockerfile (see README > Testing)
+integration-runner.Dockerfile
