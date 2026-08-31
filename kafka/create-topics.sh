@@ -10,7 +10,9 @@
 #
 # ACLs (least-privilege per service):
 #   - ingestion:     WRITE raw_data
-#   - processing:    READ raw_data, READ processing-group, WRITE aggregated_data
+#   - processing:    READ raw_data, READ processing-group,
+#                    READ group prefix 'spark-kafka-source-' (Spark internal
+#                    consumer groups), WRITE aggregated_data
 #   - visualization: READ aggregated_data, READ visualization-group
 #
 # Prerequisites:
@@ -177,6 +179,21 @@ setup_acls() {
         --allow-principal User:processing \
         --operation Read \
         --group processing-group
+
+    # Defense-in-depth: authorize Spark's internal consumer groups. Spark's
+    # spark-sql-kafka connector may generate consumer groups prefixed with
+    # 'spark-kafka-source-' in some code paths. This prefixed READ grant keeps
+    # least-privilege (no wildcard '*' group) while preventing offset-position
+    # lookups from being denied should the connector ever fall back to a
+    # generated group id instead of the pinned 'processing-group'.
+    log "Granting processing user READ access to Spark consumer groups prefixed 'spark-kafka-source-'..."
+    kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \
+        --command-config "${COMMAND_CONFIG_FILE}" \
+        --add \
+        --allow-principal User:processing \
+        --operation Read \
+        --group 'spark-kafka-source-' \
+        --resource-pattern-type prefixed
 
     log "Granting processing user WRITE access to '${AGGREGATED_DATA_TOPIC}'..."
     kafka-acls --bootstrap-server "${BOOTSTRAP_SERVER}" \

@@ -339,6 +339,17 @@ def build_kafka_options(config: PipelineConfig, is_reader: bool = True) -> Dict[
         options["subscribe"] = config.input_topic
         options["startingOffsets"] = "latest"
         options["failOnDataLoss"] = "false"
+        # Pin the underlying Kafka consumer group to the ACL-authorized group.
+        # Without this, Spark's spark-sql-kafka connector auto-generates an
+        # internal consumer group named "spark-kafka-source-<uuid>-...". The
+        # least-privilege ACLs (kafka/create-topics.sh) only grant the
+        # "processing" user group-level READ on the exact group
+        # "processing-group", so Spark's auto-generated group is unauthorized.
+        # Group/offset operations are then denied and offset-position lookups
+        # hang until the 60s timeout, failing the query with a
+        # TimeoutException and crashing the service in a restart loop. There is
+        # a single streaming query here, so pinning the exact group id is safe.
+        options["kafka.group.id"] = "processing-group"
     else:
         options["topic"] = config.output_topic
 
