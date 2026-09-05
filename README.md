@@ -107,7 +107,7 @@ The whole system is defined as code and starts with a single command.
 3. **Start the stack:**
 
    ```bash
-   docker-compose up
+   docker compose up
    ```
 
    On startup Docker Compose builds the custom Python images, starts both Kafka
@@ -283,8 +283,8 @@ posture intact (no host-exposed Kafka port).
    create the topics and ACLs:
 
    ```bash
-   docker-compose up -d
-   docker-compose ps          # confirm kafka1/kafka2 are healthy
+   docker compose up -d
+   docker compose ps          # confirm kafka1/kafka2 are healthy
    ```
 
 2. **Confirm the internal network name.** Compose prefixes it with the project
@@ -334,7 +334,7 @@ posture intact (no host-exposed Kafka port).
    rm integration-runner.Dockerfile
    ```
 
-   Stop the stack with `docker-compose down` if you started it just for the
+   Stop the stack with `docker compose down` if you started it just for the
    test run.
 
 > **Note on `pip install -r tests/requirements.txt` locally:** installing the
