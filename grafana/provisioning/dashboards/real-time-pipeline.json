@@ -392,6 +392,18 @@
               ]
             }
           }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "canton"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false
+            }
+          }
         }
       ],
       "type": "timeseries"
