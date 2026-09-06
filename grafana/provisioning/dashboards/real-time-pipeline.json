@@ -100,7 +100,7 @@
         "type": "hamedkarbasi93-kafka-datasource",
         "uid": "kafka-aggregated-data"
       },
-      "description": "Total distinct devices reporting per window",
+      "description": "Fleet-wide distinct devices reporting in the most recently completed window (summed across all cantons). Finalized by the processing service once a window closes, so the value stays stable instead of ramping while a window fills.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -140,7 +140,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^device_count$/",
+          "fields": "/^active_devices$/",
           "values": false
         },
         "showPercentChange": false,

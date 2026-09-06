@@ -36,6 +36,44 @@ logger = get_logger("pipeline")
 _total_records_lock = threading.Lock()
 _total_records_ingested: int = 0
 
+# Watermark delay applied to the event-time stream (see withWatermark below).
+WATERMARK_DELAY_SECONDS: int = 30
+
+# Delay before a window's fleet-wide total is finalized, measured from the
+# window's end against the furthest window end seen. In update output mode a
+# window's per-canton counts keep being revised for a short while after its end
+# (later micro-batches emit updated rows). Waiting comfortably longer than the
+# watermark delay plus one slide interval ensures those revisions have landed,
+# so the finalized total reflects the fully-settled window rather than a value
+# that was still climbing.
+ACTIVE_DEVICES_FINALIZE_DELAY_SECONDS: int = 150
+
+# State for the completed-window fleet-wide active-device metric.
+# Because a device belongs to exactly one canton, the fleet-wide distinct
+# device count for a window equals the sum of the per-canton counts for that
+# window. We only "finalize" that sum once the window has closed (its end has
+# passed the watermark), so the value reflects a full window rather than a
+# partially-filled one. The last finalized value is stamped onto every emitted
+# row so the (live-tail) dashboard consistently shows a stable, completed-window
+# figure instead of a ramping partial one.
+_active_devices_lock = threading.Lock()
+# Fleet-wide active devices for the most recently completed window (0 until the
+# first window closes).
+_last_completed_active_devices: int = 0
+# The end (epoch seconds) of the most recently completed window we have
+# finalized, so each window is finalized at most once.
+_last_completed_window_end: float = 0.0
+# The furthest window end (epoch seconds) observed so far, used as a proxy for
+# how far stream/event time has advanced.
+_max_window_end_seen: float = 0.0
+# Accumulated latest per-canton device_count for each still-open window, keyed
+# by window-end epoch then canton: {window_end_epoch: {canton: device_count}}.
+# In update output mode a micro-batch only carries the canton rows that changed
+# in that trigger, so a single batch never sees a window's full set of cantons.
+# We therefore accumulate the latest count per canton across batches and sum
+# them only once the window closes, which yields the true fleet-wide total.
+_window_canton_counts: Dict[float, Dict[str, int]] = {}
+
 
 # --- Schema Definition ---
 
@@ -244,6 +282,9 @@ def create_foreach_batch_handler(
             batch_id: The unique identifier for this micro-batch.
         """
         global _total_records_ingested
+        global _last_completed_active_devices
+        global _last_completed_window_end
+        global _max_window_end_seen
 
         if batch_df.rdd.isEmpty():
             return
@@ -261,6 +302,72 @@ def create_foreach_batch_handler(
             _total_records_ingested += int(total_in_batch)
             current_total = _total_records_ingested
 
+        # Finalize the fleet-wide active-device count for *completed* windows.
+        #
+        # Each device is pinned to exactly one canton, so the fleet-wide number
+        # of distinct devices reporting in a window equals the sum of the
+        # per-canton device_count values for that window. In update mode a
+        # window is re-emitted on every batch while still filling, so its
+        # running sum ramps upward and is meaningless until the window closes.
+        #
+        # To surface a stable figure we only finalize the sum for windows whose
+        # end has passed the watermark. We use the furthest window end seen so
+        # far as a proxy for stream time; a window is considered closed once
+        # stream time has advanced WATERMARK_DELAY_SECONDS beyond its end. The
+        # most recently finalized value is then stamped onto every emitted row,
+        # so the (live-tail) dashboard consistently shows the last completed
+        # window's fleet total via a simple lastNotNull reducer.
+        #
+        # Note: device_count uses approx_count_distinct (Spark streaming does
+        # not support exact distinct counts), so active_devices is a close HLL
+        # estimate rather than an exact tally.
+        # Collect this batch's per-canton counts keyed by window end. Update
+        # mode only delivers rows that changed in this trigger, so we merge
+        # them into a running accumulator rather than summing a single batch.
+        batch_rows = batch_df.select(
+            F.col("window.end").cast("long").alias("window_end_epoch"),
+            F.col("canton"),
+            F.col("device_count"),
+        ).collect()
+
+        with _active_devices_lock:
+            for row in batch_rows:
+                end_epoch = float(row["window_end_epoch"])
+                if end_epoch > _max_window_end_seen:
+                    _max_window_end_seen = end_epoch
+                counts = _window_canton_counts.setdefault(end_epoch, {})
+                counts[row["canton"]] = int(row["device_count"] or 0)
+
+            # A window is finalized only once stream time has advanced well
+            # past its end, so its per-canton counts have fully settled.
+            finalize_cutoff = (
+                _max_window_end_seen - ACTIVE_DEVICES_FINALIZE_DELAY_SECONDS
+            )
+
+            # Finalize every window that has now settled and is newer than the
+            # last one finalized, summing its accumulated per-canton counts to
+            # get the full fleet-wide total. Adopt the newest settled window's
+            # total as the current value.
+            for end_epoch in sorted(_window_canton_counts):
+                if (
+                    end_epoch <= finalize_cutoff
+                    and end_epoch > _last_completed_window_end
+                ):
+                    _last_completed_active_devices = sum(
+                        _window_canton_counts[end_epoch].values()
+                    )
+                    _last_completed_window_end = end_epoch
+
+            # Drop accumulator entries for windows already finalized to bound
+            # memory (a grace margin guards against late stragglers).
+            stale_cutoff = finalize_cutoff - WATERMARK_DELAY_SECONDS
+            for end_epoch in [
+                w for w in _window_canton_counts if w <= stale_cutoff
+            ]:
+                del _window_canton_counts[end_epoch]
+
+            active_devices_value = _last_completed_active_devices
+
         # Add computed_at and total_records_ingested columns
         computed_at = datetime.now(timezone.utc).isoformat()
 
@@ -274,6 +381,7 @@ def create_foreach_batch_handler(
             F.col("canton"),
             F.col("record_count"),
             F.col("device_count"),
+            F.lit(active_devices_value).alias("active_devices"),
             F.lit(current_total).alias("total_records_ingested"),
             F.col("avg_temperature"),
             F.col("avg_humidity"),
