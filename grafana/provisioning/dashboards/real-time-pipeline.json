@@ -278,6 +278,18 @@
               ]
             }
           }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "canton"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false
+            }
+          }
         }
       ],
       "type": "timeseries"
@@ -630,6 +642,18 @@
                 "avg_pressure",
                 "canton"
               ]
+            }
+          }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "canton"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false
             }
           }
         }
