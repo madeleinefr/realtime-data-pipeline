@@ -21,6 +21,7 @@ Kafka topics.
 - [Setup](#setup)
   - [Prerequisites](#prerequisites)
   - [Steps](#steps)
+  - [Managing the stack](#managing-the-stack)
   - [Dashboard](#dashboard)
 - [Microservices](#microservices)
 - [Configuration](#configuration)
@@ -134,16 +135,40 @@ The whole system is defined as code and starts with a single command.
    job to create the topics and apply ACLs, and then starts the Ingestion,
    Processing, and Visualization services.
 
+   The **first** run builds the Processing image (PySpark plus the Spark/Kafka
+   connector JARs) and can take several minutes. To run the stack in the
+   background instead of the foreground, use `docker compose up -d` (see
+   [Managing the stack](#managing-the-stack)).
+
 4. **Open the dashboard** at [http://localhost:3000](http://localhost:3000) and
    log in with the Grafana admin credentials from your `.env` file.
+
+   Give the pipeline a couple of minutes to populate. The by-canton panels fill
+   within seconds, but the **Active Devices** stat reads `0` until the first
+   aggregation window has closed and settled (roughly the first 5–8 minutes),
+   then shows the fleet-wide total.
+
+### Managing the stack
+
+Common lifecycle commands (run from the project root):
+
+```bash
+docker compose up -d              # start in the background (detached)
+docker compose ps                 # list services and their health status
+docker compose logs -f            # follow logs from all services
+docker compose logs -f processing # follow logs from a single service
+docker compose stop               # stop containers, keep data and volumes
+docker compose down               # stop and remove containers and networks
+docker compose down -v            # also remove volumes (Kafka data + Spark checkpoints)
+```
+
+Use `docker compose down -v` for a clean slate — it clears the Kafka topic data
+and the Spark checkpoint, so aggregation state (including the cumulative record
+count) restarts from zero on the next `up`.
 
 ### Dashboard
 
 ![Grafana dashboard showing per-canton average temperature, humidity, and pressure time-series panels and the fleet-wide Active Devices stat.](docs/images/dashboard.png)
-
-<!-- To add the screenshot: start the stack, open http://localhost:3000, wait a
-few minutes for the panels to fill and Active Devices to settle, then save a
-capture of the "Real-Time Data Pipeline" dashboard as docs/images/dashboard.png. -->
 
 The provisioned "Real-Time Data Pipeline" dashboard reads `aggregated_data`
 directly through the Kafka data source plugin and includes:
