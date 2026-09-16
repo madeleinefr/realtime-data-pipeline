@@ -28,7 +28,10 @@ Kafka topics.
 
 ## System Architecture
 
-![System architecture: Ingestion produces to raw_data, Processing (PySpark) aggregates to aggregated_data, Grafana visualizes, all on an internal Docker network with only port 3000 exposed.](docs/images/architecture.png)
+<p align="center">
+  <img src="docs/images/architecture.png" width="100%"
+       alt="System architecture: Ingestion produces to raw_data, Processing (PySpark) aggregates to aggregated_data, Grafana visualizes, all on an internal Docker network with only port 3000 exposed." />
+</p>
 
 ### Services
 
@@ -139,7 +142,10 @@ The whole system is defined as code and starts with a single command.
 
 ### Dashboard
 
-![Grafana dashboard showing per-canton average temperature, humidity, and pressure time-series panels and the fleet-wide Active Devices stat.](docs/images/dashboard.png)
+<p align="center">
+  <img src="docs/images/dashboard.png" width="100%"
+       alt="Grafana dashboard showing per-canton average temperature, humidity, and pressure time-series panels and the fleet-wide Active Devices stat." />
+</p>
 
 <!-- To add the screenshot: start the stack, open http://localhost:3000, wait a
 few minutes for the panels to fill and Active Devices to settle, then save a
