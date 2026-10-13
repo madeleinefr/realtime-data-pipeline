@@ -180,16 +180,41 @@ directly through the Kafka data source plugin and includes:
 - **Active devices** — a stat panel showing the fleet-wide distinct devices for
   the most recently completed window (see Processing_Service below). It reads
   `0` for the first few minutes after startup until the first window settles.
+  The value hovers a little below the 500-device fleet (e.g. 476–484) and
+  varies slightly between windows. This is expected for two reasons: (1) it
+  counts only the devices that actually reported within that window, and at the
+  default rate not every one of the 500 is guaranteed to appear in a given
+  5-minute window; and (2) the count is computed with `approx_count_distinct`
+  (a HyperLogLog estimate — see Processing_Service), which trades a few percent
+  of accuracy for streaming efficiency. It is not a hard-coded "realism" range.
 - **Total records ingested** — a stat panel showing the cumulative count of
   records processed, sourced from the `total_records_ingested` field.
 - **Records per window** — a time-series panel of the per-window record count
   (`record_count`), showing throughput as each window is emitted.
 
-Note that the Kafka data source is **live-tail only**: it streams new messages
-into a short rolling buffer and cannot query historical ranges. Panels
-therefore show recent live data that fills forward while the dashboard is open,
-rather than a backfilled history. This is why the fleet-wide total is finalized
-in the streaming layer rather than aggregated in Grafana.
+#### Kafka data source plugin — limitations
+
+The `hamedkarbasi93-kafka-datasource` community plugin is a thin live consumer,
+not a query engine, which shapes what the dashboard can and cannot do:
+
+- **Live-tail only, no history.** It streams new messages into a short rolling
+  buffer and cannot query historical ranges. Panels show recent live data that
+  fills forward while the dashboard is open; widening the Grafana time range
+  does **not** backfill older data, because none is stored on the Grafana side.
+  (The data itself is retained in Kafka — this is a limitation of the plugin,
+  not the pipeline.)
+- **No server-side filtering or grouping.** The plugin cannot filter by field or
+  group by a key. That is why the per-canton split is done client-side with a
+  `partitionByValues` transformation rather than a query.
+- **No aggregation across the stream.** It cannot compute windowed roll-ups.
+  This is why fleet-wide figures like `active_devices` are finalized in the
+  Processing_Service (streaming layer) and emitted as fields, rather than being
+  aggregated in Grafana.
+
+For true historical analysis or ad-hoc queries, the aggregated results would
+need to be written to a time-series store (e.g. InfluxDB or TimescaleDB) and
+Grafana pointed at that instead — intentionally out of scope here, since the
+project is deliberately database-free with Kafka as the only store.
 
 ## Microservices
 
@@ -206,6 +231,12 @@ in the streaming layer rather than aggregated in Grafana.
   This keeps the aggregated averages smooth and realistic instead of spiking
   across the full range. Readings are stateless (a pure function of the random
   state), so a fixed seed reproduces identical output.
+- **Delivery guarantees:** The producer runs with **`enable.idempotence=true`**
+  and **`acks=all`**, so writes are acknowledged only after all in-sync replicas
+  have the record, and retries never introduce duplicates or reorder messages
+  within a partition (effectively-once, in-order production). This satisfies the
+  at-least-once requirement and strengthens it toward exactly-once at the
+  produce step.
 - **Technology:** Python 3.11, `confluent-kafka`, `faker`, `python-json-logger`.
 - **Interface:** Produces JSON to `raw_data` over the Kafka protocol with
   SASL/PLAIN auth; keyed by `device_id`. No host-exposed ports (internal only).
@@ -216,6 +247,22 @@ in the streaming layer rather than aggregated in Grafana.
   `aggregated_data`; provides durable, ordered, replicated delivery.
 - **Technology:** `confluentinc/cp-kafka:7.6.0` in KRaft mode (no ZooKeeper),
   two broker instances, SASL/PLAIN authentication, StandardAuthorizer ACLs.
+- **Clustering:** The two brokers are **active-active**, not primary/standby.
+  Each topic's 3 partitions are spread across both brokers, and with
+  replication factor 2 every partition has a replica on the other broker. Both
+  brokers serve traffic simultaneously (as partition leaders); if one fails,
+  its partitions' replicas on the surviving broker are promoted, so there is no
+  data loss and no single owner of a topic.
+- **Durability vs. availability tradeoff:** Producers use `acks=all`, so under
+  normal operation (both brokers up) a record is on both replicas before it is
+  acknowledged. `min.insync.replicas` is deliberately set to **1** rather than
+  2: with only two brokers, requiring 2 in-sync replicas would halt all writes
+  whenever a single broker is down, which conflicts with the "remaining
+  services keep running" availability goal. Setting it to 1 keeps the surviving
+  broker writable during a single-broker outage, at the cost of a small window
+  where a just-acknowledged write might not yet be replicated. Fully satisfying
+  *both* "no data loss on single-broker failure" and "stay writable during
+  single-broker failure" would require a third broker (RF=3, `min.insync=2`).
 - **Interface:** Kafka protocol on internal port 9092 (broker) and 9093
   (controller). Not exposed to the host. Topics and ACLs are created by the
   `kafka-init` job.
