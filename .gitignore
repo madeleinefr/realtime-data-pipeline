@@ -19,3 +19,6 @@ spark-checkpoints/
 
 # Throwaway integration-test runner image Dockerfile (see README > Testing)
 integration-runner.Dockerfile
+
+# Local-only architecture diagram generator (kept on disk, not tracked)
+docs/generate_architecture_diagram.py

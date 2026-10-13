@@ -69,6 +69,14 @@ def create_producer() -> Producer:
         "sasl.mechanism": "PLAIN",
         "sasl.username": sasl_username,
         "sasl.password": sasl_password,
+        # Durability / delivery guarantees (made explicit rather than relying on
+        # library defaults). Idempotence gives effectively-once, in-order
+        # production: no duplicate records on retry and preserved per-partition
+        # ordering. Enabling it also pins acks=all, retries=INT32_MAX and
+        # max.in.flight<=5; acks=all is set explicitly here for clarity so a
+        # write is only acknowledged once all in-sync replicas have it.
+        "enable.idempotence": True,
+        "acks": "all",
     }
 
     logger.info(
