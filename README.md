@@ -327,11 +327,18 @@ Tests are organized into four tiers under `tests/`:
 - `tests/property/` — Hypothesis property-based tests
 - `tests/integration/` — end-to-end tests against a live Kafka cluster
 
-Install the test dependencies first:
+Install the test dependencies first. A virtual environment is recommended so
+these don't touch your system Python:
 
 ```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r tests/requirements.txt
 ```
+
+`tests/requirements.txt` includes both the test tooling and the application
+libraries the unit tests import (`confluent-kafka`, `faker`, `pyspark`), so no
+other install step is needed to run the tiers below.
 
 ### Unit, smoke, and property tests (no infrastructure required)
 
