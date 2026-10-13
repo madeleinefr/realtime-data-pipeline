@@ -1,3 +1,13 @@
+# Test tooling
 pytest
 hypothesis
 pyyaml
+
+# Application libraries imported by the unit/property tests.
+# The unit tests import the ingestion_service and processing_service packages,
+# whose modules import these at load time, so they must be present even for the
+# no-infrastructure test tiers.
+confluent-kafka
+faker
+python-json-logger
+pyspark
