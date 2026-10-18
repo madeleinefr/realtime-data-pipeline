@@ -65,10 +65,13 @@ Visualization_Service ◀──consume── aggregated_data ◀─────�
 1. **Ingestion_Service** continuously produces JSON sensor records (keyed by
    `device_id`) to the `raw_data` topic.
 2. **Processing_Service** consumes `raw_data`, validates timestamps, applies
-   row-level (inclusion) and column-level (exclusion) filtering, computes
-   sliding-window aggregations grouped by canton (count, averages, per-canton
-   device count, cumulative total), plus a fleet-wide `active_devices` count
-   for completed windows, and writes results to `aggregated_data`.
+   row-level (inclusion) and column-level (exclusion) filtering, transforms
+   records (normalizes temperature Celsius→Fahrenheit, standardizes the canton
+   string, and derives a low/normal/high `pressure_category`), then computes
+   sliding-window aggregations grouped by canton (count, averages including the
+   normalized Fahrenheit value, per-canton device count, pressure-category
+   counts, cumulative total), plus a fleet-wide `active_devices` count for
+   completed windows, and writes results to `aggregated_data`.
 3. **Visualization_Service** consumes `aggregated_data` directly through the
    Grafana Kafka data source plugin and renders live dashboard panels.
 
@@ -173,10 +176,16 @@ count) restarts from zero on the next `up`.
 The provisioned "Real-Time Data Pipeline" dashboard reads `aggregated_data`
 directly through the Kafka data source plugin and includes:
 
-- **Average temperature, humidity, and pressure by canton** — time-series
-  panels that render one line per canton (split client-side with a
-  `partitionByValues` transformation, since the Kafka source cannot filter or
-  group server-side).
+- **Average temperature (°C), temperature (°F), humidity, and pressure by
+  canton** — time-series panels that render one line per canton (split
+  client-side with a `partitionByValues` transformation, since the Kafka source
+  cannot filter or group server-side). Temperature has two panels: the raw
+  Celsius average and the normalized Fahrenheit average (`avg_temperature_f`),
+  which makes the transformation step visible.
+- **Pressure category distribution** — a donut pie chart of the derived
+  `pressure_category` counts (low/normal/high) summed across the recent stream,
+  showing the distribution of a categorical field produced by the
+  transformation step.
 - **Active devices** — a stat panel showing the fleet-wide distinct devices for
   the most recently completed window (see Processing_Service below). It reads
   `0` for the first few minutes after startup until the first window settles.
@@ -270,11 +279,19 @@ project is deliberately database-free with Kafka as the only store.
 ### Processing_Service
 
 - **Responsibility:** Consume `raw_data`, validate timestamps, apply row- and
-  column-level filtering, compute sliding-window aggregations by canton, and
-  write results to `aggregated_data`. Checkpoints offsets for fault tolerance.
+  column-level filtering, transform records, compute sliding-window
+  aggregations by canton, and write results to `aggregated_data`. Checkpoints
+  offsets for fault tolerance.
+- **Transformations:** Applied (with native Spark functions) to each record
+  before aggregation: temperature is normalized from Celsius to Fahrenheit
+  (`temperature_f`), the `canton` string is standardized (trimmed and
+  uppercased), and a `pressure_category` (low `<1000` / normal / high `>1020`
+  hPa) is derived from the pressure reading. The normalized and derived fields
+  feed the aggregation, so the transformation is visible in the output.
 - **Per-window aggregates:** For each 5-minute window (sliding every 60s) and
-  canton, the service emits the record count, per-sensor averages, a per-canton
-  distinct device count, and a cumulative total of records ingested.
+  canton, the service emits the record count, per-sensor averages (including the
+  normalized `avg_temperature_f`), a per-canton distinct device count, the
+  pressure-category counts, and a cumulative total of records ingested.
 - **Fleet-wide active devices:** Each record also carries an `active_devices`
   field — the fleet-wide count of distinct devices reporting in a window. Since
   every device belongs to exactly one canton, this equals the sum of the
