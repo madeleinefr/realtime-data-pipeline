@@ -19,6 +19,8 @@ Validated requirements:
       (verified with two ``test-``-prefixed groups on ``raw_data``).
     - FR-2.4: consumers resume from their last committed offset.
     - FR-3.5: aggregation results written to aggregated_data.
+    - FR-3.3: transformation reflected in output (Celsius->Fahrenheit
+      normalization and the derived pressure_category counts).
     - NFR-5.3: SASL/PLAIN authentication required for all connections.
 """
 
@@ -142,6 +144,31 @@ class TestEndToEndPipeline:
                     # Aggregation output must expose the computed metrics.
                     assert "record_count" in payload
                     assert "avg_temperature" in payload
+
+                    # Transformation step must be reflected in the output:
+                    # (a) temperature normalized Celsius -> Fahrenheit, averaged
+                    #     over the window. Assert the field is present and
+                    #     internally consistent with the Celsius average
+                    #     (F = C * 9/5 + 32), rather than a fixed value, since
+                    #     the window may include other traffic.
+                    assert "avg_temperature_f" in payload
+                    expected_f = payload["avg_temperature"] * 9.0 / 5.0 + 32.0
+                    assert payload["avg_temperature_f"] == pytest.approx(
+                        expected_f, abs=0.5
+                    )
+
+                    # (b) derived pressure_category counts must be present and
+                    #     consistent: the three category counts sum to the
+                    #     window's record_count.
+                    for field in ("pressure_low", "pressure_normal", "pressure_high"):
+                        assert field in payload
+                    category_total = (
+                        payload["pressure_low"]
+                        + payload["pressure_normal"]
+                        + payload["pressure_high"]
+                    )
+                    assert category_total == payload["record_count"]
+
                     found = True
         finally:
             consumer.close()
