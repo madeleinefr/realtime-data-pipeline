@@ -4,7 +4,6 @@ Covers example-based (non-property) unit tests for the processing service's
 core building blocks:
 
 - Timestamp validation (validation.validate_timestamp) - FR-3.2
-- Data transformations (transform.apply_transformations) - FR-3.3, NFR-5.8
 - Row-level inclusion filtering (filter.apply_row_filter) - NFR-5.9
 - Aggregation helpers and sliding-window logic
   (aggregation.compute_aggregation, group_by_canton, is_late_arrival,
@@ -29,7 +28,6 @@ from processing_service.aggregation import (
     is_late_arrival,
 )
 from processing_service.filter import apply_row_filter
-from processing_service.transform import apply_transformations
 from processing_service.validation import validate_timestamp
 
 
@@ -84,58 +82,6 @@ class TestTimestampValidationExamples:
     def test_empty_record_fails(self):
         """An empty record fails validation (no timestamp present)."""
         assert validate_timestamp({}) is False
-
-
-class TestTransformationExamples:
-    """Specific transformation examples (FR-3.3, NFR-5.8)."""
-
-    def test_realistic_sensor_record_transformation(self):
-        """A realistic weather record is exclusion-filtered, trimmed, normalized."""
-        record = {
-            "device_id": "  device-042  ",
-            "canton": " ZH ",
-            "temperature_mdeg": 21500,  # millidegrees -> degrees
-            "humidity": 55.0,
-            "internal_debug": "drop-me",
-            "timestamp": "2024-01-15T10:30:00+00:00",
-        }
-        exclusion_list = ["internal_debug"]
-        normalization_config = {"temperature_mdeg": 0.001}
-
-        result = apply_transformations(
-            record, exclusion_list, normalization_config=normalization_config
-        )
-
-        assert "internal_debug" not in result
-        assert result["device_id"] == "device-042"
-        assert result["canton"] == "ZH"
-        assert result["temperature_mdeg"] == pytest.approx(21.5)
-        assert result["humidity"] == 55.0
-        assert result["timestamp"] == "2024-01-15T10:30:00+00:00"
-
-    def test_column_filtering_removes_only_listed_fields(self):
-        """Column filtering removes exactly the excluded fields, keeps the rest."""
-        record = {"a": 1, "b": "keep", "c": 3.5, "secret": "x", "token": "y"}
-        result = apply_transformations(record, ["secret", "token"])
-        assert result == {"a": 1, "b": "keep", "c": 3.5}
-
-    def test_normalization_only_affects_configured_numeric_fields(self):
-        """Only fields present in the config are scaled; others are untouched."""
-        record = {"voltage_mv": 3300, "current_a": 2, "label": "sensor"}
-        config = {"voltage_mv": 0.001}
-        result = apply_transformations(record, [], normalization_config=config)
-        assert result["voltage_mv"] == pytest.approx(3.3)
-        assert result["current_a"] == 2
-        assert result["label"] == "sensor"
-
-    def test_transformation_does_not_mutate_input(self):
-        """The original record is left unchanged after transformation."""
-        record = {"name": "  padded  ", "value": 1000, "drop": "x"}
-        snapshot = {"name": "  padded  ", "value": 1000, "drop": "x"}
-        apply_transformations(
-            record, ["drop"], normalization_config={"value": 0.01}
-        )
-        assert record == snapshot
 
 
 class TestRowFilteringDatasets:

@@ -359,7 +359,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -391,7 +391,7 @@
           "topicName": "aggregated_data"
         }
       ],
-      "title": "Avg Temperature by Canton",
+      "title": "Avg Temperature by Canton (°C)",
       "transformations": [
         {
           "id": "filterFieldsByName",
@@ -400,6 +400,131 @@
               "names": [
                 "time",
                 "avg_temperature",
+                "canton"
+              ]
+            }
+          }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "canton"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Avg Temperature by Canton (°F, normalized)",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "avg_temperature_f",
                 "canton"
               ]
             }
@@ -486,7 +611,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 16
       },
       "id": 6,
       "options": {
@@ -598,8 +723,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 14
+        "x": 12,
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -659,6 +784,135 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "kafka-aggregated-data"
+      },
+      "description": "Distribution of records by derived pressure_category — low (<1000 hPa), normal (1000-1020), or high (>1020) — summed across the recent stream. Visualizes a derived categorical field produced by the transformation step.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pressure_low"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Low (<1000 hPa)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pressure_normal"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Normal (1000-1020 hPa)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pressure_high"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "High (>1020 hPa)"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "hamedkarbasi93-kafka-datasource",
+            "uid": "kafka-aggregated-data"
+          },
+          "keyFormat": "none",
+          "messageFormat": "json",
+          "offsetReset": "last",
+          "offsetResetValue": 5000,
+          "partition": "all",
+          "refId": "A",
+          "timestampMode": "kafkaTimestamp",
+          "topic": "aggregated_data",
+          "topicName": "aggregated_data"
+        }
+      ],
+      "title": "Pressure Category Distribution (derived)",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "pressure_low",
+                "pressure_normal",
+                "pressure_high"
+              ]
+            }
+          }
+        },
+        {
+          "id": "reduce",
+          "options": {
+            "labelsToFields": false,
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "type": "piechart"
     }
   ],
   "refresh": "10s",
@@ -834,6 +1088,6 @@
   "timezone": "browser",
   "title": "Real-Time Data Pipeline",
   "uid": "real-time-pipeline",
-  "version": 4,
+  "version": 9,
   "weekStart": ""
 }
