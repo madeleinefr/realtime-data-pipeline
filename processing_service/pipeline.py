@@ -384,8 +384,12 @@ def create_foreach_batch_handler(
             F.lit(active_devices_value).alias("active_devices"),
             F.lit(current_total).alias("total_records_ingested"),
             F.col("avg_temperature"),
+            F.col("avg_temperature_f"),
             F.col("avg_humidity"),
             F.col("avg_pressure"),
+            F.col("pressure_low"),
+            F.col("pressure_normal"),
+            F.col("pressure_high"),
             F.lit(computed_at).alias("computed_at"),
         )
 
@@ -469,8 +473,9 @@ def start_pipeline(spark: SparkSession, config: Optional[PipelineConfig] = None)
 
     Constructs the full streaming pipeline: reads from the input Kafka topic,
     deserializes JSON, validates timestamps, applies row-level and column-level
-    filtering, computes sliding window aggregations grouped by canton, and writes
-    to the output Kafka topic using foreachBatch with retry logic.
+    filtering, transforms fields (Celsius-to-Fahrenheit normalization and canton
+    standardization), computes sliding window aggregations grouped by canton,
+    and writes to the output Kafka topic using foreachBatch with retry logic.
 
     Args:
         spark: An initialized SparkSession instance.
@@ -537,8 +542,32 @@ def start_pipeline(spark: SparkSession, config: Optional[PipelineConfig] = None)
     else:
         projected = filtered
 
-    # 6. Cast timestamp to proper TimestampType for windowing
-    with_ts = projected.withColumn(
+    # 6. Transform fields (applied to the ingestion input before aggregation):
+    #    a) Normalize temperature from Celsius (as produced by the Ingestion
+    #       service) to Fahrenheit, a configured unit conversion.
+    #    b) Standardize the canton string (trim + uppercase) so the grouping
+    #       key is clean and consistent.
+    #    The normalized temperature_f feeds the aggregation below, so the
+    #    transformation is visible in the dashboard output (avg_temperature_f).
+    #    c) Derive a categorical field, pressure_category, by bucketing the
+    #       numeric pressure (hPa) into low / normal / high. This enriches each
+    #       record with a derived category that is counted per window below.
+    transformed = (
+        projected
+        .withColumn(
+            "temperature_f", F.round(F.col("temperature") * 9.0 / 5.0 + 32.0, 2)
+        )
+        .withColumn("canton", F.upper(F.trim(F.col("canton"))))
+        .withColumn(
+            "pressure_category",
+            F.when(F.col("pressure") < 1000, F.lit("low"))
+            .when(F.col("pressure") > 1020, F.lit("high"))
+            .otherwise(F.lit("normal")),
+        )
+    )
+
+    # 7. Cast timestamp to proper TimestampType for windowing
+    with_ts = transformed.withColumn(
         "event_time", F.to_timestamp(F.col("timestamp"))
     )
 
@@ -559,8 +588,18 @@ def start_pipeline(spark: SparkSession, config: Optional[PipelineConfig] = None)
             F.count("*").alias("record_count"),
             F.approx_count_distinct("device_id").alias("device_count"),
             F.avg("temperature").alias("avg_temperature"),
+            F.avg("temperature_f").alias("avg_temperature_f"),
             F.avg("humidity").alias("avg_humidity"),
             F.avg("pressure").alias("avg_pressure"),
+            F.sum(
+                F.when(F.col("pressure_category") == "low", 1).otherwise(0)
+            ).alias("pressure_low"),
+            F.sum(
+                F.when(F.col("pressure_category") == "normal", 1).otherwise(0)
+            ).alias("pressure_normal"),
+            F.sum(
+                F.when(F.col("pressure_category") == "high", 1).otherwise(0)
+            ).alias("pressure_high"),
         )
     )
 
