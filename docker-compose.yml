@@ -152,8 +152,12 @@ services:
       OUTPUT_TOPIC: "aggregated_data"
       WINDOW_SIZE_MINUTES: "5"
       SLIDE_INTERVAL_SECONDS: "60"
-      COLUMN_EXCLUSION_LIST: ""
-      ROW_INCLUSION_CRITERIA: "{}"
+# Column-level pruning (data minimization / governance): drop precise device
+      # coordinates before aggregation. These fields are not used downstream.
+      COLUMN_EXCLUSION_LIST: "latitude,longitude"
+      # Row-level inclusion filtering: aggregate only stations currently
+      # reporting as active (drops the ~3% inactive/maintenance/error records).
+      ROW_INCLUSION_CRITERIA: '{"status": "active"}'
       CHECKPOINT_DIR: "/tmp/spark-checkpoints"
       KAFKA_SASL_USERNAME: ${PROCESSING_KAFKA_USER}
       KAFKA_SASL_PASSWORD: ${PROCESSING_KAFKA_PASS}

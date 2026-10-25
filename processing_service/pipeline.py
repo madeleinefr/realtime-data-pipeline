@@ -91,6 +91,26 @@ RAW_DATA_SCHEMA = StructType([
     StructField("status", StringType(), True),
 ])
 
+# Columns the transform/aggregation stages depend on. Excluding any of these
+# via COLUMN_EXCLUSION_LIST would make a later stage reference a dropped column
+# and crash the stream, so they are protected: the config layer strips them
+# from the exclusion list (with a warning) rather than letting the pipeline
+# fail at runtime.
+#   - timestamp  : event-time windowing (withWatermark / window)
+#   - canton     : the aggregation grouping key (also standardized in transform)
+#   - temperature: normalized to Fahrenheit in the transform step
+#   - pressure   : bucketed into pressure_category in the transform step
+#   - humidity   : aggregated (avg_humidity)
+#   - device_id  : per-canton / fleet-wide distinct device counts
+PROTECTED_COLUMNS: frozenset = frozenset({
+    "timestamp",
+    "canton",
+    "temperature",
+    "pressure",
+    "humidity",
+    "device_id",
+})
+
 
 # --- Configuration ---
 
@@ -139,10 +159,26 @@ class PipelineConfig:
 
         # Parse column exclusion list
         raw_exclusion = os.environ.get("COLUMN_EXCLUSION_LIST", "")
-        self.column_exclusion_list: List[str] = [
+        requested_exclusions: List[str] = [
             col.strip()
             for col in raw_exclusion.split(",")
             if col.strip()
+        ]
+
+        # Guard: never drop a column the transform/aggregation depends on.
+        # Excluding one of those would crash the stream downstream, so we strip
+        # any protected column from the request and warn, keeping the service
+        # running on a safe exclusion set instead of failing.
+        blocked = [c for c in requested_exclusions if c in PROTECTED_COLUMNS]
+        if blocked:
+            logger.warning(
+                "Ignoring COLUMN_EXCLUSION_LIST entries that the "
+                "transform/aggregation depend on: %s. These columns are "
+                "required downstream and cannot be excluded.",
+                ", ".join(sorted(set(blocked))),
+            )
+        self.column_exclusion_list: List[str] = [
+            c for c in requested_exclusions if c not in PROTECTED_COLUMNS
         ]
 
         # Parse row inclusion criteria

@@ -96,7 +96,13 @@ Visualization_Service ◀──consume── aggregated_data ◀─────�
    - `processing` — READ `raw_data` + WRITE `aggregated_data`
    - `visualization` — READ `aggregated_data` only
 3. **Data** — the Processing_Service applies column-level exclusion filtering
-   and row-level inclusion filtering before writing aggregation results.
+   and row-level inclusion filtering before writing aggregation results. By
+   default it drops the precise device coordinates (`latitude`, `longitude`)
+   as a data-minimization measure and aggregates only records reporting
+   `status = active`. Both are configured via `COLUMN_EXCLUSION_LIST` and
+   `ROW_INCLUSION_CRITERIA` (see Configuration). Because the active-status
+   filter drops the small share (~3%) of inactive/maintenance/error readings,
+   the per-canton and fleet-wide device counts reflect active stations only.
 
 ## Setup
 
@@ -382,8 +388,8 @@ values are set in `docker-compose.yml`; credentials are injected from the
 | `OUTPUT_TOPIC` | Sink topic | `aggregated_data` |
 | `WINDOW_SIZE_MINUTES` | Aggregation window size | `5` |
 | `SLIDE_INTERVAL_SECONDS` | Window slide interval | `60` |
-| `COLUMN_EXCLUSION_LIST` | Comma-separated fields to strip | `""` |
-| `ROW_INCLUSION_CRITERIA` | JSON filter criteria | `{}` |
+| `COLUMN_EXCLUSION_LIST` | Comma-separated fields to strip before processing (data minimization). Columns the transform/aggregation depend on are protected and silently ignored if listed. | `"latitude,longitude"` |
+| `ROW_INCLUSION_CRITERIA` | JSON inclusion filter; only records matching all criteria are aggregated | `{"status": "active"}` |
 | `CHECKPOINT_DIR` | Spark checkpoint directory | `/tmp/spark-checkpoints` |
 | `KAFKA_SASL_USERNAME` | SASL username (from `.env` `PROCESSING_KAFKA_USER`) | — |
 | `KAFKA_SASL_PASSWORD` | SASL password (from `.env` `PROCESSING_KAFKA_PASS`) | — |
