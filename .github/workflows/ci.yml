@@ -1,16 +1,25 @@
 name: CI
 
-# Runs the no-infrastructure test tiers (unit, smoke, property) and the full
-# 1,000,000-record data-volume check on every push and pull request. The
-# integration tier is intentionally excluded: it is skip-guarded and requires a
-# live Kafka cluster reachable only on the internal Docker network (see
-# tests/README.md), which is not available in CI.
+# Two jobs:
+#
+#   test        - the no-infrastructure test tiers (unit, smoke, property) plus
+#                 the full 1,000,000-record data-volume check. Runs
+#                 automatically on every push and pull request to main.
+#
+#   integration - the end-to-end integration tier against a live Docker Compose
+#                 stack (two Kafka brokers with SASL/PLAIN + ACLs). This is
+#                 heavy (it builds the PySpark image and boots the whole stack),
+#                 so it is NOT run on every push. It is triggered manually from
+#                 the Actions tab ("Run workflow"), which lets you produce a
+#                 clean, GitHub-verified end-to-end run on demand (e.g. before a
+#                 submission) without slowing down ordinary pushes.
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -36,3 +45,86 @@ jobs:
 
       - name: Verify the 1,000,000+ data-point requirement
         run: python scripts/verify_volume.py --count 1000000
+
+  integration:
+    name: End-to-end integration (manual)
+    # Manual-only: produces a traceable, GitHub-verified end-to-end run on
+    # demand. Not part of the push/PR gate.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create .env from the template
+        # The committed template holds the same credentials the JAAS config and
+        # ACLs expect, so the stack authenticates out of the box.
+        run: cp .env.example .env
+
+      - name: Build images and start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for both brokers and the processing service to be healthy
+        run: |
+          set -euo pipefail
+          # Poll container health rather than sleeping a fixed amount. kafka-init
+          # is a one-shot job and is allowed to have exited successfully.
+          deadline=$((SECONDS + 600))   # up to 10 minutes for the first build/boot
+          services="kafka1 kafka2 processing_service"
+          while true; do
+            all_ok=true
+            for svc in $services; do
+              status=$(docker inspect -f '{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "missing")
+              echo "  $svc: $status"
+              if [ "$status" != "healthy" ]; then
+                all_ok=false
+              fi
+            done
+            # Confirm the kafka-init job finished successfully (topics + ACLs).
+            init_exit=$(docker inspect -f '{{.State.ExitCode}}' kafka-init 2>/dev/null || echo "missing")
+            echo "  kafka-init exit code: $init_exit"
+            if [ "$all_ok" = true ] && [ "$init_exit" = "0" ]; then
+              echo "Stack is healthy."
+              break
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::Stack did not become healthy within the timeout."
+              docker compose ps
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Build the in-network integration test runner image
+        # data-net is 'internal: true' (no internet), so test dependencies must
+        # be baked in at build time on the default network, then the container
+        # is attached to data-net to reach the kafka1/kafka2 hostnames.
+        run: |
+          cat > integration-runner.Dockerfile <<'EOF'
+          FROM python:3.11-slim
+          RUN pip install --no-cache-dir confluent-kafka pytest
+          WORKDIR /app
+          EOF
+          docker build -f integration-runner.Dockerfile -t rtdp-integration-runner .
+
+      - name: Run the integration tier inside the internal network
+        run: |
+          set -euo pipefail
+          network="$(basename "$PWD")_data-net"
+          echo "Using network: $network"
+          docker run --rm \
+            --network "$network" \
+            -v "$PWD":/app -w /app \
+            -e KAFKA_BOOTSTRAP_SERVERS=kafka1:9092,kafka2:9092 \
+            rtdp-integration-runner \
+            python -m pytest tests/integration -v
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v
