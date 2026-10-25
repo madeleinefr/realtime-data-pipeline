@@ -1,0 +1,10 @@
+# Keep the build context minimal and reproducible.
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.hypothesis/
+.DS_Store
+*.md
+Dockerfile
+.dockerignore
