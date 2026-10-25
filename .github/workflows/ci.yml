@@ -1,0 +1,38 @@
+name: CI
+
+# Runs the no-infrastructure test tiers (unit, smoke, property) and the full
+# 1,000,000-record data-volume check on every push and pull request. The
+# integration tier is intentionally excluded: it is skip-guarded and requires a
+# live Kafka cluster reachable only on the internal Docker network (see
+# tests/README.md), which is not available in CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit / smoke / property tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # 3.11 matches the Ingestion_Service base image (python:3.11-slim).
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install pinned test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Run no-infrastructure test tiers
+        run: pytest tests/unit tests/smoke tests/property -v
+
+      - name: Verify the 1,000,000+ data-point requirement
+        run: python scripts/verify_volume.py --count 1000000
