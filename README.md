@@ -1,5 +1,7 @@
 # Real-Time Data Backend
 
+[![CI](https://github.com/madeleinefr/realtime-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/madeleinefr/realtime-data-pipeline/actions/workflows/ci.yml)
+
 A streaming-native, real-time data pipeline built as four Docker microservices.
 The system continuously generates synthetic IoT weather-station telemetry from
 Swiss cantons, streams it through an Apache Kafka cluster, processes and
