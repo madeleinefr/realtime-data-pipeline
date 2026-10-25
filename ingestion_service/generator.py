@@ -168,12 +168,14 @@ def _reading(baseline: float, jitter: float, low: float, high: float) -> float:
 def generate_device_record() -> Dict[str, Any]:
     """Generate a single synthetic IoT sensor data record.
 
-    Selects a device from the fixed fleet, advances its sensor readings with a
-    small mean-reverting random-walk step, and returns a record. Because each
+    Selects a device from the fixed fleet and samples its sensor readings as
+    the device's persistent baseline plus small Gaussian jitter. Because each
     device has a persistent canton and coordinates, per-canton aggregates are
-    stable; because readings drift smoothly, the aggregated averages no longer
-    spike. The timestamp is guaranteed to be monotonically non-decreasing
-    relative to the previous call.
+    stable; because the jitter is small, the aggregated averages stay smooth
+    and spike-free. Readings are stateless (a pure function of the ``random``
+    state, with no dependence on previous readings), so a fixed seed reproduces
+    identical output. The timestamp is guaranteed to be monotonically
+    non-decreasing relative to the previous call.
 
     Returns:
         A dictionary containing the following fields:

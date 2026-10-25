@@ -8,6 +8,8 @@ device land on the same partition, preserving per-device ordering.
 Requirements: FR-1.1, FR-1.3, FR-1.5, NFR-5.3, NFR-5.10
 """
 
+from __future__ import annotations
+
 import json
 import os
 from typing import Any, Dict

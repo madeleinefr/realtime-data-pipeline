@@ -1,2 +1,9 @@
-pyspark
-python-json-logger
+# Processing_Service runtime dependencies.
+# Pinned to exact versions for reproducible builds.
+# Base image apache/spark:3.5.1-python3 bundles Python 3.8 and Spark 3.5.1, so:
+#   - pyspark is pinned to 3.5.1 to match the bundled Spark and the baked-in
+#     spark-sql-kafka connector JARs (mismatched versions break the connector).
+#   - python-json-logger stays on the 2.0.x line, which still supports Python
+#     3.8 (3.x+ dropped 3.8/3.9).
+pyspark==3.5.1
+python-json-logger==2.0.7

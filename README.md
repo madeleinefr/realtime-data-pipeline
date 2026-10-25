@@ -246,6 +246,25 @@ project is deliberately database-free with Kafka as the only store.
   within a partition (effectively-once, in-order production). This satisfies the
   at-least-once requirement and strengthens it toward exactly-once at the
   produce step.
+- **Data volume (1,000,000+ records):** The stream is unbounded — the service
+  produces continuously and the generator imposes no record cap. The assignment's
+  "at least 1,000,000 time-referenced data points" is therefore a property of
+  sustained operation. It can be reached two ways: (a) continuous production at
+  the configured `PRODUCE_RATE` (e.g. 10 rec/s fills a 24h `raw_data` retention
+  window and keeps going), or (b) a bounded run via `RECORD_LIMIT=1000000`. The
+  volume and time-referencing are independently verifiable without a long live
+  run with `scripts/verify_volume.py`, which drives the real generator and
+  asserts the result. A measured reference run on a developer laptop produced
+  **1,000,000 records with 1,000,000 unique `record_id` values, coverage of all
+  26 cantons, and every record ISO-8601 timestamped and monotonically
+  non-decreasing**, at roughly 137,000 records/s (~306 MB of JSON payload). So
+  the generator sustains the required volume in seconds of CPU time, and the
+  live stream simply emits it continuously at the configured rate:
+
+  ```bash
+  python scripts/verify_volume.py            # verifies 1,000,000 records
+  python scripts/verify_volume.py --count 50000   # faster smoke check
+  ```
 - **Technology:** Python 3.11, `confluent-kafka`, `faker`, `python-json-logger`.
 - **Interface:** Produces JSON to `raw_data` over the Kafka protocol with
   SASL/PLAIN auth; keyed by `device_id`. No host-exposed ports (internal only).

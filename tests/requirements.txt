@@ -1,13 +1,20 @@
+# Test dependencies, pinned to exact versions for reproducible test runs.
+# Installed into a host virtual environment (and the throwaway in-network
+# integration runner, base python:3.11-slim). Application-library pins below
+# mirror the service requirements so the unit/property tiers import the same
+# versions the containers run.
+
 # Test tooling
-pytest
-hypothesis
-pyyaml
+pytest==8.3.5
+hypothesis==6.112.5
+pyyaml==6.0.2
 
 # Application libraries imported by the unit/property tests.
 # The unit tests import the ingestion_service and processing_service packages,
 # whose modules import these at load time, so they must be present even for the
-# no-infrastructure test tiers.
-confluent-kafka
-faker
-python-json-logger
-pyspark
+# no-infrastructure test tiers. pyspark is pinned to 3.5.1 to match the
+# Processing_Service image.
+confluent-kafka==2.5.3
+faker==25.9.2
+python-json-logger==2.0.7
+pyspark==3.5.1
