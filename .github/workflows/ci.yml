@@ -24,14 +24,14 @@ on:
 jobs:
   test:
     name: Unit / smoke / property tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           # 3.11 matches the Ingestion_Service base image (python:3.11-slim).
           python-version: "3.11"
@@ -51,12 +51,12 @@ jobs:
     # Manual-only: produces a traceable, GitHub-verified end-to-end run on
     # demand. Not part of the push/PR gate.
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create .env from the template
         # The committed template holds the same credentials the JAAS config and
